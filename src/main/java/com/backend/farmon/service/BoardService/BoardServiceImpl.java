@@ -8,6 +8,7 @@ import com.backend.farmon.domain.User;
 import com.backend.farmon.dto.Board.BoardRequestDto;
 import com.backend.farmon.dto.Filter.FieldCategory;
 import com.backend.farmon.dto.Filter.FieldCategoryDTO;
+import com.backend.farmon.dto.Filter.SubCategoryDTO;
 import com.backend.farmon.dto.post.PostType;
 import com.backend.farmon.repository.BoardRepository.BoardRepository;
 import com.backend.farmon.repository.PostRepository.PostRepository;
@@ -44,7 +45,7 @@ public class BoardServiceImpl implements BoardService {
 
         if(board.getPostType() != PostType.FREE){
             throw new GeneralException(ErrorStatus.POST_NOT_FOUND);
-        }
+        } //생각해보니까 board에서 id 찾는게 동일
 
         Post post = createPostByBoardType(postDto, user, board);
         postRepository.save(post);
@@ -58,7 +59,6 @@ public class BoardServiceImpl implements BoardService {
                 s3Service.saveImage(file, post);
             }
         }
-
 
     }
 
@@ -66,93 +66,75 @@ public class BoardServiceImpl implements BoardService {
     // 분야 선택 안 할 시 에러가 일어나게 에러 전문가 칼럼 과 qna 게시판에 추가
     @Override
     public void save_QnaPost(BoardRequestDto.QnaPost postDto, List<MultipartFile> multipartFiles) throws Exception {
-        validateFieldCategory(postDto.getFieldCategory());
-        User user =userRepository.findById(postDto.getUserId())
-                .orElseThrow(()->new GeneralException(ErrorStatus.USER_NOT_FOUND));
-        Board board=boardRepository.findById(postDto.getBoardId())
-                .orElseThrow(()->new GeneralException(ErrorStatus.POST_TYPE_NOT_FOUND));
-
-        if(board.getPostType() != PostType.QNA){
-            throw new GeneralException(ErrorStatus.POST_NOT_FOUND);
-        }
-
-        Post post = createPostByBoardType(postDto, user, board);
-        postRepository.save(post);
-
-        // 전체,인기 게시판에 저장
-        savePostToAllAndPopular(post, user);
-
-
-        if (multipartFiles != null && !multipartFiles.isEmpty()) {
-            for (MultipartFile file : multipartFiles) {
-                s3Service.saveImage(file, post);
-            }
-        }
-
-
-    }
-    // 분야 선택 안 할 시 에러가 일어나게  전문가 칼럼 과 qna 게시판에 추가
-    @Override
-    public void save_ExperCol(BoardRequestDto.ExpertColumn postDto, List<MultipartFile> multipartFiles) throws Exception {
-        validateFieldCategory(postDto.getFieldCategory());
-
-        // 2. 사용자 및 게시판 조회
+        validateFieldCategory(postDto.getFieldCategory()); // 유효성 검증
+        log.info(String.valueOf(postDto.getUserId()));
         User user = userRepository.findById(postDto.getUserId())
                 .orElseThrow(() -> new GeneralException(ErrorStatus.USER_NOT_FOUND));
         Board board = boardRepository.findById(postDto.getBoardId())
                 .orElseThrow(() -> new GeneralException(ErrorStatus.POST_TYPE_NOT_FOUND));
 
-        // 3. 게시판 타입 확인
-        if (board.getPostType() != PostType.EXPERT_COLUMN) {
+        if (board.getPostType() != PostType.QNA) {
             throw new GeneralException(ErrorStatus.POST_NOT_FOUND);
         }
-
-        // 4. 게시글 생성 및 저장
+        log.info(postDto.getPostContent().toString());
         Post post = createPostByBoardType(postDto, user, board);
         postRepository.save(post);
 
-
-        // 전체 게시판에 저장
         savePostToAllAndPopular(post, user);
 
-        // 5. 파일 업로드 처리
         if (multipartFiles != null && !multipartFiles.isEmpty()) {
             for (MultipartFile file : multipartFiles) {
                 s3Service.saveImage(file, post);
             }
         }
-
-
     }
 
-    // QnA 및 전문가 칼럼에 필요한 FieldCategory 유효성 검증 로직 구체화
+    @Override
+    public void save_ExperCol(BoardRequestDto.ExpertColumn postDto, List<MultipartFile> multipartFiles) throws Exception {
+        validateFieldCategory(postDto.getFieldCategory()); // 유효성 검증
+        log.info("검증은 완료");
+        User user = userRepository.findById(postDto.getUserId())
+                .orElseThrow(() -> new GeneralException(ErrorStatus.USER_NOT_FOUND));
+        Board board = boardRepository.findById(postDto.getBoardId())
+                .orElseThrow(() -> new GeneralException(ErrorStatus.POST_TYPE_NOT_FOUND));
+
+        if (board.getPostType() != PostType.EXPERT_COLUMN) {
+            throw new GeneralException(ErrorStatus.POST_NOT_FOUND);
+        }
+
+        Post post = createPostByBoardType(postDto, user, board);
+        postRepository.save(post);
+
+        // 인기 , 전체 게시판 에 저장  근데 이건  왜 저장이 같이 안돼지?
+        savePostToAllAndPopular(post, user);
+
+        if (multipartFiles != null && !multipartFiles.isEmpty()) {
+            for (MultipartFile file : multipartFiles) {
+                s3Service.saveImage(file, post);
+            }
+        }
+    }
+
+
     private void validateFieldCategory(FieldCategoryDTO fieldCategoryDTO) {
-        if (fieldCategoryDTO == null || fieldCategoryDTO.getFieldCategory() == null) {
-            throw new IllegalArgumentException("분야 카테고리는 필수 입력 값입니다.");
+        if (fieldCategoryDTO == null || !fieldCategoryDTO.isValid()) {
+            throw new GeneralException(ErrorStatus.FIELD_CATEGORY_REQUIRED);
         }
-
-        // 1. FieldCategory 유효성 검증
-        FieldCategory fieldCategory = fieldCategoryDTO.getFieldCategory();
-        boolean isValidCategory = Arrays.stream(FieldCategory.values())
-                .anyMatch(category -> category == fieldCategory);
-
-        if (!isValidCategory) {
-            throw new IllegalArgumentException("유효하지 않은 분야 카테고리입니다: " + fieldCategory);
-        }
-
-        // 2. SubCategories 중 isSelected=true인 항목이 있는지 확인
-        List<FieldCategoryDTO.SubCategoryDTO> subCategories = fieldCategoryDTO.getSubCategories();
+        log.info("뭐가 문제야");
+        List<SubCategoryDTO> subCategories = fieldCategoryDTO.getSubCategories();
         if (subCategories == null || subCategories.isEmpty()) {
-            throw new IllegalArgumentException("분야 카테고리의 하위 항목이 존재하지 않습니다.");
+            throw new GeneralException(ErrorStatus.SUB_CATEGORIES_EMPTY);
         }
 
         boolean hasSelectedSubCategory = subCategories.stream()
-                .anyMatch(subCategory -> Boolean.TRUE.equals(subCategory.getIsSelected()));
+                .anyMatch(SubCategoryDTO::getIsSelected);
 
         if (!hasSelectedSubCategory) {
-            throw new IllegalArgumentException("하위 항목 중 선택된(isSelected=true) 항목이 없습니다.");
+            throw new GeneralException(ErrorStatus.FIELD_CATEGORY_REQUIRED);
         }
+        log.info("인증은 끝");
     }
+
 
 
 
@@ -165,22 +147,9 @@ public class BoardServiceImpl implements BoardService {
                 .board(board)
                 .build();
     }
-    // Qna 게시판
-    private Post createPostByBoardType(BoardRequestDto.QnaPost postDTO, User user, Board board)  {
-        List<String> selectedSubCategories = postDTO.getFieldCategory().getSubCategories().stream()
-                .filter(FieldCategoryDTO.SubCategoryDTO::getIsSelected) // isSelected = true인 항목만 필터링
-                .map(FieldCategoryDTO.SubCategoryDTO::getSubCategoryName) // 이름만 추출
-                .collect(Collectors.toList());
 
-        return Post.builder()
-                .postTitle(postDTO.getPostTitle())
-                .postContent(postDTO.getPostContent())
-                .fieldCategory(postDTO.getFieldCategory().getFieldCategory()) // ENUM 값으로 변환
-                .user(user)
-                .board(board)
-                .selectedSubCategories(selectedSubCategories) // 선택된 하위 카테고리 리스트 추가
-                .build();
-    }
+
+
     // 전문가 칼럼 게시판
 //    private Post createPostByBoardType(BoardRequestDto.ExpertColumn postDTO, User user, Board board) throws Exception {
 //        List<String> selectedSubCategories = postDTO.getFieldCategory().getSubCategories().stream()
@@ -198,19 +167,34 @@ public class BoardServiceImpl implements BoardService {
 //                .build();
 //    }
 
-    private Post createPostByBoardType(BoardRequestDto.ExpertColumn postDTO, User user, Board board)  {
+    private Post createPostByBoardType(BoardRequestDto.QnaPost postDTO, User user, Board board) {
         List<String> selectedSubCategories = postDTO.getFieldCategory().getSubCategories().stream()
-                .filter(FieldCategoryDTO.SubCategoryDTO::getIsSelected) // isSelected = true인 항목만 필터링
-                .map(FieldCategoryDTO.SubCategoryDTO::getSubCategoryName) // 이름만 추출
+                .filter(SubCategoryDTO::getIsSelected)
+                .map(SubCategoryDTO::getSubCategoryName)
                 .collect(Collectors.toList());
 
         return Post.builder()
                 .postTitle(postDTO.getPostTitle())
                 .postContent(postDTO.getPostContent())
-                .fieldCategory(postDTO.getFieldCategory().getFieldCategory()) // Enum 타입 그대로 전달
+                .fieldCategory(postDTO.getFieldCategory().getFieldCategory()) // Enum 값 직접 설정
+                .selectedSubCategories(selectedSubCategories)
                 .user(user)
                 .board(board)
-                .selectedSubCategories(selectedSubCategories) // 체크된 하위 카테고리 추가
+                .build();
+    }
+    private Post createPostByBoardType(BoardRequestDto.ExpertColumn postDTO, User user, Board board) {
+        List<String> selectedSubCategories = postDTO.getFieldCategory().getSubCategories().stream()
+                .filter(SubCategoryDTO::getIsSelected)
+                .map(SubCategoryDTO::getSubCategoryName)
+                .collect(Collectors.toList());
+
+        return Post.builder()
+                .postTitle(postDTO.getPostTitle())
+                .postContent(postDTO.getPostContent())
+                .fieldCategory(postDTO.getFieldCategory().getFieldCategory()) // Enum 값 직접 설정
+                .selectedSubCategories(selectedSubCategories)
+                .user(user)
+                .board(board)
                 .build();
     }
 
@@ -234,7 +218,7 @@ public class BoardServiceImpl implements BoardService {
                 .selectedSubCategories(originalPost.getSelectedSubCategories())
                 .build();
         postRepository.save(allPost);
-
+        log.info("두 게시판에 모두 저장됨");
         // 인기 게시판에 저장할 게시글 생성 (초기 좋아요 1 설정)
         Post popularPost = Post.builder()
                 .postTitle(originalPost.getPostTitle())

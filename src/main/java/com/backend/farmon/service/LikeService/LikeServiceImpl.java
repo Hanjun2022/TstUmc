@@ -44,6 +44,7 @@ public class LikeServiceImpl {
         post.increaseLikes();
         // 좋아요를 일단 Post엔티티에 구현하여 하나를 더해줌
         postRepository.save(post);
+        postRepository.flush();
     }
 
     // 좋아요 감소
@@ -58,6 +59,7 @@ public class LikeServiceImpl {
         likeCountRepository.delete(like);
         post.decreaseLikes();
         postRepository.save(post);
+        postRepository.flush();
         // 좋아요를 일단 Post엔티티에 구현하여 하나를 더해줌
     }
     @Transactional

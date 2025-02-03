@@ -68,8 +68,10 @@ public enum ErrorStatus implements BaseErrorCode {
     MESSAGE_TYPE_NOT_FOUND(HttpStatus.BAD_REQUEST, "MESSAGE_TYPE4001", "지원되지 않는 채팅 메시지 타입입니다."),
 
     // 검색어 관련 에러
-    SEARCH_NOT_EMPTY(HttpStatus.BAD_REQUEST, "SEARCH_4001", "검색어가 비어 있습니다.");
-
+    SEARCH_NOT_EMPTY(HttpStatus.BAD_REQUEST, "SEARCH_4001", "검색어가 비어 있습니다."),
+    SUB_CATEGORIES_EMPTY(HttpStatus.BAD_REQUEST,"INVALID4003","하위 분야를 선택해주세요 "),
+    INVALID_FIELD_CATEGORY(HttpStatus.BAD_REQUEST,"INVALID4001","분야 지정을 잘못하셨습니다. "),
+    FIELD_CATEGORY_REQUIRED(HttpStatus.BAD_REQUEST,"FIELD4001","분야는 필수사항입니다. ");
     private final HttpStatus httpStatus;
     private final String code;
     private final String message;

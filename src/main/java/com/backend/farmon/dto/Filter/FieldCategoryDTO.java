@@ -9,25 +9,28 @@ import java.util.List;
 @Builder
 @Schema(description = "분야에 대한 필터링 DTO")
 public class FieldCategoryDTO {
+
+    @Schema(description = "작물ID")
+    Long categoryId;
+    @Schema(description = "상위작물이름")
+    String name;
+
+    @Schema(description = "상위작물이름")
+    String displayName;
+
+    @Schema(description = "상위분야 ")
     @Setter
     private FieldCategory fieldCategory;
+
+    @Schema(description = "하위분야 ")
     @Getter
     private List<SubCategoryDTO> subCategories;
 
-    @Getter
-    @Setter
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class SubCategoryDTO {
-        private String subCategoryName;
-        private Boolean isSelected;
+    // 유효성 검증 메서드 추가
+    public boolean isValid() {
+        return fieldCategory != null && subCategories != null && !subCategories.isEmpty();
     }
 
-    // 생성자, getter, setter 추가
-    public FieldCategoryDTO(FieldCategory fieldCategory, List<SubCategoryDTO> subCategories) {
-        this.fieldCategory = fieldCategory;
-        this.subCategories = subCategories;
-    }
 
 
 }

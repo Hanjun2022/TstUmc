@@ -14,7 +14,7 @@ public enum FieldCategory {
     FLOWER("화훼"),
     FEED("사료"),
     ANY("기타");
-
+    @Schema(description = "상위작물의 표시 이름")
     private final String displayName;
 
     FieldCategory(String displayName) {

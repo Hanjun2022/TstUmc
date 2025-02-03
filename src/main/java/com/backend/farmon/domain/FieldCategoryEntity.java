@@ -1,8 +1,8 @@
-package com.backend.farmon.dto.Filter;
+package com.backend.farmon.domain;
 
 
-import com.backend.farmon.domain.Post;
 import com.backend.farmon.domain.commons.BaseEntity;
+import com.backend.farmon.dto.Filter.FieldCategory;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;

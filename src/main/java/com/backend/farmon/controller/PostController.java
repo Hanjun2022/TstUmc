@@ -22,11 +22,13 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.*;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -39,6 +41,7 @@ import java.util.stream.Collectors;
 @Controller
 @RequestMapping("/api/posts")
 @RequiredArgsConstructor
+@Slf4j
 public class PostController {
 
     private final BoardServiceImpl boardServiceImpl;
@@ -61,25 +64,18 @@ public class PostController {
 
     @Parameters({
             @Parameter(name = "userId", description = "로그인한 유저의 아이디(pk)", required = true),
-            @Parameter(name = "BoardRequestDTO", description = "게시판 유형", required = true),
             @Parameter(name = "imgList", description = "첨부된 이미지 목록 (optional)", required = false)
     })
     @PostMapping("/free/save")
     public ApiResponse  save_Free_Post(
             @RequestParam("userId") Long userId, // userId를 추가
-            @RequestPart(name = "posting")@Valid BoardRequestDto.FreePost request,
+            @RequestBody BoardRequestDto.FreePost request,
             @RequestPart(value = "imgList", required = false) List<MultipartFile> imgList) throws Exception {
-        String resultcode;
-        try {
+            String resultcode;
+            log.info("시작");
             boardServiceImpl.save_FreePost(request, imgList);
             resultcode = SuccessStatus._OK.getCode();
             return ApiResponse.onSuccess(resultcode);
-        }catch (Exception e){
-             resultcode=ErrorStatus.POST_TYPE_NOT_FOUND.getCode();
-
-            return ApiResponse.onSuccess(resultcode);
-        }
-
 
     }
 
@@ -97,31 +93,56 @@ public class PostController {
 
     @Parameters({
             @Parameter(name = "userId", description = "로그인한 유저의 아이디(pk)", required = true),
-            @Parameter(name = "BoardRequestDTO", description = "게시판 유형", required = true),
             @Parameter(name = "imgList", description = "첨부된 이미지 목록 (optional)", required = false),
-            @Parameter(name="Filter" ,description = "분야(필터)",required = true)
     })
     @PostMapping("/qna/save")
     public ApiResponse  save_QnA_Post(
-            @RequestParam("userId") Long userId, // userId를 추가
-            @RequestParam(name = "posting")@Valid BoardRequestDto.QnaPost request,
+            @RequestBody  BoardRequestDto.QnaPost request,
             @RequestPart(value = "imgList", required = false) List<MultipartFile> imgList
             ) throws Exception {
         String resultcode;
-        try{
+            log.info("받은 요청: " + request.getPostTitle()); // 한글 정상 출력되는지 확인
             boardServiceImpl.save_QnaPost(request,imgList);
             resultcode=SuccessStatus._OK.getCode();
 
-            return ApiResponse.onSuccess(resultcode);
-        }catch (Exception e){
-            resultcode=ErrorStatus.POST_TYPE_NOT_FOUND.getCode();
 
             return ApiResponse.onSuccess(resultcode);
-        }
-
     }
 
 
+
+ // 전문가인 경우 자유게시판 과 전문가 칼럼에 글을 쓸 수 있음 (위에 꺼에서 추가해야함)
+
+    @Operation(
+            summary = "전문가 칼럼 글에서 정보를 저장",
+            description = "사용자는 전문가 칼럼 글에서 글을 저장할 수 있습니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "COMMON200", description = "OK, 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "USER4001", description = "아이디와 일치하는 사용자가 없습니다.", content = @Content(schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "COMMON400", description = "잘못된 요청입니다.", content = @Content(schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "POST_TYPE4002", description = "글이 저장되지 않았습니다.", content = @Content(schema = @Schema(implementation = ApiResponse.class))),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "POST_TYPE4003", description = "게시판을 찾을 수 없습니다.", content = @Content(schema = @Schema(implementation = ApiResponse.class)))
+
+    })
+
+    @Parameters({
+            @Parameter(name = "userId", description = "로그인한 유저의 아이디(pk)", required = true),
+            @Parameter(name = "imgList", description = "첨부된 이미지 목록 (optional)", required = false),
+    })
+    @PostMapping("/expertCol/save")
+    public ApiResponse save_exper_Post(
+            @RequestBody BoardRequestDto.ExpertColumn request,
+            @RequestPart(value = "imgList", required = false) List<MultipartFile> imgList
+          ) throws Exception {
+        String resultcode;
+
+        boardServiceImpl.save_ExperCol(request,imgList);
+        resultcode=SuccessStatus._OK.getCode();
+        return ApiResponse.onSuccess(resultcode);
+
+
+    }
 
 //    @Operation(
 //            summary = "QnA 답변 저장",
@@ -146,47 +167,6 @@ public class PostController {
 //        // 성공적인 응답 반환
 //        return ApiResponse.onSuccess(SuccessStatus._OK.getCode());
 //    }
-
- // 전문가인 경우 자유게시판 과 전문가 칼럼에 글을 쓸 수 있음 (위에 꺼에서 추가해야함)
-
-    @Operation(
-            summary = "전문가 칼럼 글에서 정보를 저장",
-            description = "사용자는 전문가 칼럼 글에서 글을 저장할 수 있습니다."
-    )
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "COMMON200", description = "OK, 성공"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "USER4001", description = "아이디와 일치하는 사용자가 없습니다.", content = @Content(schema = @Schema(implementation = ApiResponse.class))),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "COMMON400", description = "잘못된 요청입니다.", content = @Content(schema = @Schema(implementation = ApiResponse.class))),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "POST_TYPE4002", description = "글이 저장되지 않았습니다.", content = @Content(schema = @Schema(implementation = ApiResponse.class))),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "POST_TYPE4003", description = "게시판을 찾을 수 없습니다.", content = @Content(schema = @Schema(implementation = ApiResponse.class)))
-
-    })
-
-    @Parameters({
-            @Parameter(name = "userId", description = "로그인한 유저의 아이디(pk)", required = true),
-            @Parameter(name = "BoardRequestDTO", description = "게시판 유형", required = true),
-            @Parameter(name = "postRequestDTO", description = "게시글 정보", required = true),
-            @Parameter(name = "imgList", description = "첨부된 이미지 목록 (optional)", required = false),
-    })
-    @PostMapping("/expertCol/save")
-    public ApiResponse save_exper_Post(
-            @RequestParam("userId") Long userId, // userId를 추가
-            @RequestParam(name = "posting") BoardRequestDto.ExpertColumn request,
-            @RequestPart(value = "imgList", required = false) List<MultipartFile> imgList
-          ) throws Exception {
-        String resultcode;
-        try{
-            boardServiceImpl.save_ExperCol(request,imgList);
-            resultcode=SuccessStatus._OK.getCode();
-            return ApiResponse.onSuccess(resultcode);
-        }
-        catch (Exception e){
-            resultcode=ErrorStatus.POST_TYPE_NOT_FOUND.getCode();
-
-            return ApiResponse.onSuccess(resultcode);
-        }
-
-    }
 
 
 ///// 게시글 목록 그냥 조회 (상세조회X) 리스트 형식으로 돌아옴
